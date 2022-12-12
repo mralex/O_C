@@ -53,6 +53,7 @@ OC::App available_apps[] = {
 #else 
 OC::App available_apps[] = {
   DECLARE_APP('H','E', "Hello", Hello),
+  DECLARE_APP('S','H', "Super S&H", SSHH),
   DECLARE_APP('A','S', "CopierMaschine", ASR),
   DECLARE_APP('Q','Q', "Quantermain", QQ),
   DECLARE_APP('S','Q', "Sequins", SEQ)
