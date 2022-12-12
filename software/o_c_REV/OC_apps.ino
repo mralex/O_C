@@ -24,14 +24,14 @@
 #include "OC_digital_inputs.h"
 #include "OC_autotune.h"
 
-#define DECLARE_APP(a, b, name, prefix, isr) \
+#define DECLARE_APP(a, b, name, prefix) \
 { TWOCC<a,b>::value, name, \
   prefix ## _init, prefix ## _storageSize, prefix ## _save, prefix ## _restore, \
   prefix ## _handleAppEvent, \
   prefix ## _loop, prefix ## _menu, prefix ## _screensaver, \
   prefix ## _handleButtonEvent, \
   prefix ## _handleEncoderEvent, \
-  isr \
+  prefix ## _isr \
 }
 
 #ifdef BORING_APP_NAMES
@@ -52,9 +52,10 @@ OC::App available_apps[] = {
 };
 #else 
 OC::App available_apps[] = {
-  DECLARE_APP('A','S', "CopierMaschine", ASR, ASR_isr),
-  DECLARE_APP('Q','Q', "Quantermain", QQ, QQ_isr),
-  DECLARE_APP('S','Q', "Sequins", SEQ, SEQ_isr)
+  DECLARE_APP('H', 'E', "Hello", Hello),
+  DECLARE_APP('A','S', "CopierMaschine", ASR),
+  DECLARE_APP('Q','Q', "Quantermain", QQ),
+  DECLARE_APP('S','Q', "Sequins", SEQ)
   // DECLARE_APP('B','Y', "Viznutcracker sweet", BYTEBEATGEN, BYTEBEATGEN_isr)
 };
 #endif
