@@ -1,4 +1,5 @@
 // Copyright (c) 2018, Jason Justian
+// Copyright (c) 2022, Alex Roberts
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -54,6 +55,7 @@ public:
     virtual void Controller();
     virtual void View();
     virtual void Resume();
+    virtual void Screensaver();
 
     void BaseController()
     {

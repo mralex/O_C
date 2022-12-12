@@ -20,17 +20,79 @@
 
 #include "HSApplication.h"
 
-class Hello : public HSApplication {
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+#define STARS_COUNT 32
+#define STAR_ORIGIN_X 64
+#define STAR_ORIGIN_Y 32
+#define STARS_MAX_Z 64
+#define SCREENSAVER_TICKS 48
+
+typedef struct {
+    int x;
+    int y;
+    int z;
+    int velocity;
+} Star;
+
+class Hello : public HSApplication
+{
 public:
-    void Start() {}
+    void Start() {
+        uint32_t _seed = OC::ADC::value<ADC_CHANNEL_1>() + OC::ADC::value<ADC_CHANNEL_2>() + OC::ADC::value<ADC_CHANNEL_3>() + OC::ADC::value<ADC_CHANNEL_4>();
+        randomSeed(_seed);
+
+        for (int i = 0; i < STARS_COUNT; i++) {
+            stars[i].x = random(SCREEN_WIDTH * 10) - (STAR_ORIGIN_X * 10);
+            stars[i].y = random(SCREEN_HEIGHT * 10) - (STAR_ORIGIN_Y * 10);
+            stars[i].z = random(STARS_MAX_Z);
+            stars[i].velocity = 1 + random(5);
+        }
+
+        screensaverTicks = SCREENSAVER_TICKS;
+    }
+
     void Resume() {}
     void Controller() {}
+
+    void Screensaver() {
+        screensaverTicks--;
+
+        for (int i = 0; i < STARS_COUNT; i++)
+        {
+            if (screensaverTicks <= 0) {
+                stars[i].z -= stars[i].velocity;
+            }
+
+            int x = STAR_ORIGIN_X + stars[i].x / (stars[i].z > 0 ? stars[i].z : 1);
+            int y = STAR_ORIGIN_Y + stars[i].y / (stars[i].z > 0 ? stars[i].z : 1);
+
+            if (x < 0 || x > SCREEN_WIDTH || y < 0 || y > SCREEN_HEIGHT) {
+                stars[i].z = STARS_MAX_Z;
+            } else {
+                gfxPixel(x, y);
+            }
+
+            if (stars[i].z <= 0) {
+                stars[i].z = STARS_MAX_Z;
+            }
+        }
+
+        if (screensaverTicks <= 0) {
+            screensaverTicks = SCREENSAVER_TICKS;
+        }
+    }
 
     void View() {
         gfxHeader("Hello!");
         gfxPrint(5, 15, "Weird sequencers");
         gfxPrint(5, 25, "Coming soon?");
     }
+
+private:
+    Star stars[STARS_COUNT] = {};
+    int screensaverTicks;
 };
 
 Hello Hello_instance;
@@ -62,7 +124,9 @@ void Hello_menu () {
     Hello_instance.BaseView();
 }
 
-void Hello_screensaver() {}
+void Hello_screensaver() {
+    Hello_instance.Screensaver();
+}
     
 void Hello_handleButtonEvent(const UI::Event &event) {}
     
