@@ -24,6 +24,13 @@
 
 // #include <stdint.h>
 #include "HSApplication.h"
+#include "braids_quantizer.h"
+#include "OC_scales.h"
+
+// Semitones (5) default
+const int DEFAULT_SCALE = 8;
+const int MAX_NOTES = 16;
+const int MAX_VALUE = 99;
 
 enum notes
 {
@@ -45,55 +52,75 @@ enum notes
 class NoteBucket
 {
 public:
-    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0)
+    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0), scale(OC::Scales::GetScale(DEFAULT_SCALE))
     {
-        for (uint8_t i = 0; i < NOTE_COUNT; i++)
+        for (uint8_t i = 0; i < MAX_NOTES; i++)
         {
             note_weights[i] = 0;
             notes_weighted[i] = 0;
         }
-        // UpdateNoteWeight(NOTE_C, 75);
-        // UpdateNoteWeight(NOTE_E, 45);
-        // UpdateNoteWeight(NOTE_F, 65);
-        UpdateNoteWeight(NOTE_C, 78);
-        UpdateNoteWeight(NOTE_D, 45);
-        UpdateNoteWeight(NOTE_DD, 65);
-        UpdateNoteWeight(NOTE_F, 75);
-        UpdateNoteWeight(NOTE_G, 45);
-        UpdateNoteWeight(NOTE_GG, 35);
-        UpdateNoteWeight(NOTE_AA, 45);
+
+        RerollWeights();
     }
 
     void UpdateNoteWeight(uint8_t note, uint8_t weight)
     {
         note_weights[note] = weight;
 
+        updateWeights();
+    }
+
+    int GetRandom()
+    {
+        if (accumulated_weight == 0)
+        {
+            // no notes are selected
+            // FIXME: Returning the root note, not sure what else should be done? Don't trigger?
+            return scale.notes[0];
+        }
+
+        uint16_t w = random(accumulated_weight);
+        for (uint8_t i = 0; i < scale.num_notes; i++)
+        {
+            if (notes_weighted[i] >= w)
+            {
+                return scale.notes[i];
+            }
+        }
+
+        return scale.notes[0];
+    }
+
+    void SetScale(braids::Scale newScale)
+    {
+        scale = newScale;
+        updateWeights();
+    }
+
+    void RerollWeights()
+    {
+        for (uint8_t i = 0; i < scale.num_notes; i++)
+        {
+            UpdateNoteWeight(i, random(MAX_VALUE));
+        }
+    }
+
+    uint8_t note_weights[MAX_NOTES];
+    uint16_t notes_weighted[MAX_NOTES];
+    uint16_t accumulated_weight;
+
+    braids::Scale scale;
+
+    void updateWeights()
+    {
         uint16_t accumulated_weight = 0;
-        for (int i = 0; i < notes::NOTE_COUNT; i++)
+        for (uint8_t i = 0; i < scale.num_notes; i++)
         {
             accumulated_weight += note_weights[i];
             notes_weighted[i] = accumulated_weight;
         }
         this->accumulated_weight = accumulated_weight;
     }
-
-    int GetRandom()
-    {
-        uint16_t w = random(accumulated_weight);
-        for (uint8_t i = 0; i < notes::NOTE_COUNT; i++)
-        {
-            if (notes_weighted[i] >= w)
-            {
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-    uint8_t note_weights[notes::NOTE_COUNT];
-    uint16_t notes_weighted[notes::NOTE_COUNT];
-    uint16_t accumulated_weight;
 };
 
 class Dicer : public HSApplication
@@ -123,18 +150,16 @@ public:
 
             if (gate)
             {
-                activeNote = noteBucket.GetRandom();
+                activePitch = noteBucket.GetRandom();
                 activeOctave = random(minOctave, maxOctave + 1);
-            }
 
-            clockHigh = true;
-            // Leave gate open for 50% PWM
-            gate_timeout = ClockCycleTicks(0) / 2;
+                // Leave gate open for 50% PWM
+                gate_timeout = ClockCycleTicks(0) / 2;
+            }
         }
         else if (gate_timeout <= 0)
         {
             gate = false;
-            clockHigh = false;
         }
 
         // Gate Out
@@ -142,7 +167,7 @@ public:
         GateOut(0, gate);
 
         // CV Out
-        SemitoneOut(DAC_CHANNEL_B, activeNote, activeOctave);
+        Out(DAC_CHANNEL_B, activePitch, activeOctave);
     }
 
     void Screensaver()
@@ -152,10 +177,54 @@ public:
     void View()
     {
         gfxHeader("Slice & Dice");
-        gfxPrint(10, 20, activeNote);
-        gfxPrint(20, 20, (int)gate);
-        gfxPrint(10, 32, ClockCycleTicks(0));
-        gfxPrint(10, 40, input);
+        int x = 10;
+        int x_incr = 15;
+        int y = 20;
+        for (uint8_t i = 0; i < noteBucket.scale.num_notes; i++)
+        {
+            gfxPrint(x, y, noteBucket.note_weights[i]);
+            x += x_incr;
+        }
+
+        x = 10 + (x_incr * selected_note);
+        y = 31;
+        gfxDottedLine(x, y, x + 10, y);
+
+        y += 17;
+        gfxPrint(10, y, activePitch);
+        gfxPrint(50, y, (int)gate);
+        y += 15;
+        gfxPrint(10, y, input);
+    }
+
+    void RerollNoteWeights()
+    {
+        noteBucket.RerollWeights();
+    }
+
+    void UpdateSelectedNote(const UI::Event &event)
+    {
+        int value = selected_note + event.value;
+        if (value < 0)
+        {
+            value = noteBucket.scale.num_notes - 1;
+        }
+        selected_note = value % noteBucket.scale.num_notes;
+    }
+
+    void UpdateSelectedNoteValue(const UI::Event &event)
+    {
+        int value = noteBucket.note_weights[selected_note] + event.value;
+        if (value < 0)
+        {
+            value = 0;
+        }
+        else if (value > MAX_VALUE)
+        {
+            value = MAX_VALUE;
+        }
+
+        noteBucket.UpdateNoteWeight(selected_note, value);
     }
 
 private:
@@ -163,15 +232,18 @@ private:
     uint8_t maxOctave = 2;
     NoteBucket noteBucket;
 
-    bool clockHigh = false;
     uint8_t restChance = 20;
     bool gate = false;
-    uint32_t activeNote = 0;
+    uint32_t activePitch = 0;
     uint32_t activeOctave = 0;
 
     uint32_t input = 0;
 
     int gate_timeout;
+
+    int scale_index = DEFAULT_SCALE;
+
+    int selected_note = 0;
 };
 
 Dicer Dicer_instance;
@@ -214,9 +286,28 @@ void Dicer_screensaver()
     Dicer_instance.Screensaver();
 }
 
-void Dicer_handleButtonEvent(const UI::Event &event) {}
+void Dicer_handleButtonEvent(const UI::Event &event)
+{
+    if (UI::EVENT_BUTTON_PRESS == event.type)
+    {
+        if (event.control == OC::CONTROL_BUTTON_DOWN)
+        {
+            Dicer_instance.RerollNoteWeights();
+        }
+    }
+}
 
-void Dicer_handleEncoderEvent(const UI::Event &event) {}
+void Dicer_handleEncoderEvent(const UI::Event &event)
+{
+    if (OC::CONTROL_ENCODER_L == event.control)
+    {
+        Dicer_instance.UpdateSelectedNote(event);
+    }
+    if (OC::CONTROL_ENCODER_R == event.control)
+    {
+        Dicer_instance.UpdateSelectedNoteValue(event);
+    }
+}
 
 void Dicer_isr()
 {
