@@ -101,7 +101,7 @@ public:
     void Resume() {}
     void Controller() {
         // Get a note to play 
-        if (Clock(0))// && !clockHigh)
+        if (Clock(0))
         {
             input = Proportion(DetentedIn(0), 7000, 100);
             gate = random(100) + 1 > input;
@@ -114,7 +114,7 @@ public:
             clockHigh = true;
             // Leave gate open for 50% PWM
             gate_timeout = ClockCycleTicks(0) / 2;
-        } else if (--gate_timeout <= 0) { // if (!Clock(0) && clockHigh){
+        } else if (--gate_timeout <= 0) {
             gate = false;
             clockHigh = false;
         }
