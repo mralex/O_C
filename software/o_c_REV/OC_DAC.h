@@ -181,6 +181,11 @@ public:
     set<channel>(semitone_to_dac(channel, semitone, octave_offset));
   }
 
+  static void set_semitone(DAC_CHANNEL channel, int32_t semitone, int32_t octave_offset)
+  {
+    set(channel, semitone_to_dac(channel, semitone, octave_offset));
+  }
+
   // Set channel to semitone value
   template <DAC_CHANNEL channel>
   static void set_voltage_scaled_semitone(int32_t semitone, int32_t octave_offset, uint8_t voltage_scaling) {

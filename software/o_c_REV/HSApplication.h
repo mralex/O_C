@@ -37,6 +37,8 @@ typedef int32_t simfloat;
 #ifndef HSAPPLICATION_H_
 #define HSAPPLICATION_H_
 
+#include "OC_DAC.h"
+
 #define HSAPPLICATION_CURSOR_TICKS 12000
 #define HSAPPLICATION_5V 7680
 #define HSAPPLICATION_3V 4608
@@ -74,7 +76,7 @@ public:
             if (clock_countdown[ch] > 0)
             {
                 if (--clock_countdown[ch] == 0)
-                    Out(ch, 0);
+                    Out((DAC_CHANNEL)ch, 0);
             }
         }
 
@@ -113,10 +115,15 @@ public:
 
     //////////////// Hemisphere-like IO methods
     ////////////////////////////////////////////////////////////////////////////////
-    void Out(int ch, int value, int octave = 0)
+    void Out(DAC_CHANNEL channel, int value, int octave = 0)
     {
-        OC::DAC::set_pitch((DAC_CHANNEL)ch, value, octave);
-        outputs[ch] = value + (octave * (12 << 7));
+        OC::DAC::set_pitch(channel, value, octave);
+        outputs[(int)channel] = value + (octave * (12 << 7));
+    }
+
+    void SemitoneOut(DAC_CHANNEL channel, int32_t value, int32_t octave = 0) {
+        OC::DAC::set_semitone(channel, value, octave);
+        outputs[(int)channel] = value + (octave * (12 << 7));
     }
 
     int In(int ch)
@@ -151,7 +158,7 @@ public:
 
     void GateOut(int ch, bool high)
     {
-        Out(ch, 0, (high ? PULSE_VOLTAGE : 0));
+        Out((DAC_CHANNEL)ch, 0, (high ? PULSE_VOLTAGE : 0));
     }
 
     bool Clock(int ch)
@@ -176,7 +183,7 @@ public:
     void ClockOut(int ch, int ticks = 100)
     {
         clock_countdown[ch] = ticks;
-        Out(ch, 0, PULSE_VOLTAGE);
+        Out((DAC_CHANNEL)ch, 0, PULSE_VOLTAGE);
     }
 
     // Buffered I/O functions for use in Views

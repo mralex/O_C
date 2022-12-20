@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include "HSApplication.h"
+#include "OC_DAC.h"
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -64,23 +65,23 @@ public:
             sh_4 = random(0, HSAPPLICATION_5V);
         }
 
-        Out(0, sh_1, 0);
-        Out(1, sh_2, 0);
-        Out(2, sh_3, 0);
-        Out(3, sh_4, 0);
+        Out(DAC_CHANNEL_A, sh_1, 0);
+        Out(DAC_CHANNEL_B, sh_2, 0);
+        Out(DAC_CHANNEL_C, sh_3, 0);
+        Out(DAC_CHANNEL_D, sh_4, 0);
     }
 
     void Screensaver() {
         screensaverTicks--;
 
-        for (int i = 0; i < STARS_COUNT; i++)
+        for (uint8_t i = 0; i < STARS_COUNT; i++)
         {
             if (screensaverTicks <= 0) {
                 stars[i].z -= stars[i].velocity;
             }
 
-            int x = STAR_ORIGIN_X + stars[i].x / (stars[i].z > 0 ? stars[i].z : 1);
-            int y = STAR_ORIGIN_Y + stars[i].y / (stars[i].z > 0 ? stars[i].z : 1);
+            uint8_t x = STAR_ORIGIN_X + stars[i].x / (stars[i].z > 0 ? stars[i].z : 1);
+            uint8_t y = STAR_ORIGIN_Y + stars[i].y / (stars[i].z > 0 ? stars[i].z : 1);
 
             if (x < 0 || x > SCREEN_WIDTH || y < 0 || y > SCREEN_HEIGHT) {
                 stars[i].z = STARS_MAX_Z;
@@ -104,7 +105,7 @@ public:
 
 private:
     Star stars[STARS_COUNT] = {};
-    int screensaverTicks;
+    uint8_t screensaverTicks;
 
     uint32_t sh_1;
     uint32_t sh_2;
