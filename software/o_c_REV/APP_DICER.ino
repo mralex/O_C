@@ -19,13 +19,14 @@
 // SOFTWARE.
 
 // Slice & Dice
-// 
+//
 // A compact sequencer inspired by Vermona meloDicer.
 
 // #include <stdint.h>
 #include "HSApplication.h"
 
-enum notes {
+enum notes
+{
     NOTE_C = 0,
     NOTE_CC,
     NOTE_D,
@@ -41,10 +42,13 @@ enum notes {
     NOTE_COUNT,
 };
 
-class NoteBucket {
+class NoteBucket
+{
 public:
-    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0) {
-        for(uint8_t i = 0; i < NOTE_COUNT; i++) {
+    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0)
+    {
+        for (uint8_t i = 0; i < NOTE_COUNT; i++)
+        {
             note_weights[i] = 0;
             notes_weighted[i] = 0;
         }
@@ -60,22 +64,26 @@ public:
         UpdateNoteWeight(NOTE_AA, 45);
     }
 
-    void UpdateNoteWeight(uint8_t note, uint8_t weight) {
+    void UpdateNoteWeight(uint8_t note, uint8_t weight)
+    {
         note_weights[note] = weight;
 
         uint16_t accumulated_weight = 0;
-        for(int i = 0; i < notes::NOTE_COUNT; i++) {
+        for (int i = 0; i < notes::NOTE_COUNT; i++)
+        {
             accumulated_weight += note_weights[i];
             notes_weighted[i] = accumulated_weight;
         }
         this->accumulated_weight = accumulated_weight;
     }
 
-    int GetRandom() {
+    int GetRandom()
+    {
         uint16_t w = random(accumulated_weight);
         for (uint8_t i = 0; i < notes::NOTE_COUNT; i++)
         {
-            if (notes_weighted[i] >= w) {
+            if (notes_weighted[i] >= w)
+            {
                 return i;
             }
         }
@@ -93,20 +101,28 @@ class Dicer : public HSApplication
 public:
     Dicer() : noteBucket() {}
 
-    void Start() {
+    void Start()
+    {
         uint32_t _seed = OC::ADC::value<ADC_CHANNEL_1>() + OC::ADC::value<ADC_CHANNEL_2>() + OC::ADC::value<ADC_CHANNEL_3>() + OC::ADC::value<ADC_CHANNEL_4>();
         randomSeed(_seed);
     }
 
     void Resume() {}
-    void Controller() {
-        // Get a note to play 
+    void Controller()
+    {
+        if (gate_timeout > 0)
+        {
+            gate_timeout--;
+        }
+
+        // Get a note to play
         if (Clock(0))
         {
             input = Proportion(DetentedIn(0), 7000, 100);
             gate = random(100) + 1 > input;
 
-            if (gate) {
+            if (gate)
+            {
                 activeNote = noteBucket.GetRandom();
                 activeOctave = random(minOctave, maxOctave + 1);
             }
@@ -114,7 +130,9 @@ public:
             clockHigh = true;
             // Leave gate open for 50% PWM
             gate_timeout = ClockCycleTicks(0) / 2;
-        } else if (--gate_timeout <= 0) {
+        }
+        else if (gate_timeout <= 0)
+        {
             gate = false;
             clockHigh = false;
         }
@@ -127,14 +145,16 @@ public:
         SemitoneOut(DAC_CHANNEL_B, activeNote, activeOctave);
     }
 
-    void Screensaver() {
+    void Screensaver()
+    {
     }
 
-    void View() {
+    void View()
+    {
         gfxHeader("Slice & Dice");
         gfxPrint(10, 20, activeNote);
         gfxPrint(20, 20, (int)gate);
-        gfxPrint(10, 32,ClockCycleTicks(0));
+        gfxPrint(10, 32, ClockCycleTicks(0));
         gfxPrint(10, 40, input);
     }
 
@@ -156,41 +176,49 @@ private:
 
 Dicer Dicer_instance;
 
-void Dicer_init() {
+void Dicer_init()
+{
     Dicer_instance.BaseStart();
 }
 
+size_t Dicer_storageSize()
+{
+    return 0;
+}
+size_t Dicer_save(void *storage)
+{
+    return 0;
+}
+size_t Dicer_restore(const void *storage)
+{
+    return 0;
+}
 
-size_t Dicer_storageSize() {
-    return 0;
-}
-size_t Dicer_save(void *storage) {
-    return 0;
-}
-size_t Dicer_restore(const void *storage) {
-    return 0;
-}
-    
-void Dicer_handleAppEvent(OC::AppEvent event) {
-    if (event == OC::APP_EVENT_RESUME) {
+void Dicer_handleAppEvent(OC::AppEvent event)
+{
+    if (event == OC::APP_EVENT_RESUME)
+    {
         Dicer_instance.Resume();
     }
 }
-    
+
 void Dicer_loop() {}
 
-void Dicer_menu () {
+void Dicer_menu()
+{
     Dicer_instance.BaseView();
 }
 
-void Dicer_screensaver() {
+void Dicer_screensaver()
+{
     Dicer_instance.Screensaver();
 }
-    
+
 void Dicer_handleButtonEvent(const UI::Event &event) {}
-    
+
 void Dicer_handleEncoderEvent(const UI::Event &event) {}
-    
-void Dicer_isr() {
+
+void Dicer_isr()
+{
     return Dicer_instance.BaseController();
 }

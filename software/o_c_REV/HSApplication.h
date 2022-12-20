@@ -121,7 +121,8 @@ public:
         outputs[(int)channel] = value + (octave * (12 << 7));
     }
 
-    void SemitoneOut(DAC_CHANNEL channel, int32_t value, int32_t octave = 0) {
+    void SemitoneOut(DAC_CHANNEL channel, int32_t value, int32_t octave = 0)
+    {
         OC::DAC::set_semitone(channel, value, octave);
         outputs[(int)channel] = value + (octave * (12 << 7));
     }
