@@ -28,31 +28,28 @@
 #include "OC_scales.h"
 
 // Semitones (5) default
-const int DEFAULT_SCALE = 8;
+const int DEFAULT_SCALE = 11; // Aeolian
 const int MAX_NOTES = 16;
 const int MAX_VALUE = 99;
+const int LINE_SPACE = 3;
 
-enum notes
+const int MAX_OCTAVE_VALUE = 7;
+const int MIN_SCALE = 5;
+const int MAX_SCALE = 16;
+
+enum SETTINGS
 {
-    NOTE_C = 0,
-    NOTE_CC,
-    NOTE_D,
-    NOTE_DD,
-    NOTE_E,
-    NOTE_F,
-    NOTE_FF,
-    NOTE_G,
-    NOTE_GG,
-    NOTE_A,
-    NOTE_AA,
-    NOTE_B,
-    NOTE_COUNT,
+    SLICES,
+    SCALE,
+    MIN_OCTAVE,
+    MAX_OCTAVE,
+    SETTINGS_COUNT
 };
 
 class NoteBucket
 {
 public:
-    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0), scale(OC::Scales::GetScale(DEFAULT_SCALE))
+    NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0), scale_idx(DEFAULT_SCALE), scale(OC::Scales::GetScale(DEFAULT_SCALE))
     {
         for (uint8_t i = 0; i < MAX_NOTES; i++)
         {
@@ -76,6 +73,7 @@ public:
         {
             // no notes are selected
             // FIXME: Returning the root note, not sure what else should be done? Don't trigger?
+            last_note = 0;
             return scale.notes[0];
         }
 
@@ -84,6 +82,7 @@ public:
         {
             if (notes_weighted[i] >= w)
             {
+                last_note = i;
                 return scale.notes[i];
             }
         }
@@ -91,9 +90,10 @@ public:
         return scale.notes[0];
     }
 
-    void SetScale(braids::Scale newScale)
+    void SetScale(int index)
     {
-        scale = newScale;
+        scale_idx = index;
+        scale = OC::Scales::GetScale(scale_idx);
         updateWeights();
     }
 
@@ -108,7 +108,9 @@ public:
     uint8_t note_weights[MAX_NOTES];
     uint16_t notes_weighted[MAX_NOTES];
     uint16_t accumulated_weight;
+    uint8_t last_note = 0;
 
+    uint32_t scale_idx;
     braids::Scale scale;
 
     void updateWeights()
@@ -172,34 +174,169 @@ public:
 
     void Screensaver()
     {
+        int x = 10;
+        int x_incr = 15;
+        int y = 17;
+
+        gfxPixel(x + 7 + (x_incr * noteBucket.last_note), y);
+
+        y += 3;
+        for (uint8_t i = 0; i < noteBucket.scale.num_notes; i++)
+        {
+            gfxPrint(x, y, noteBucket.note_weights[i]);
+            x += x_incr;
+        }
     }
 
     void View()
     {
         gfxHeader("Slice & Dice");
+
+        if (gate)
+            gfxRect(115, 2, 5, 5);
+
         int x = 10;
         int x_incr = 15;
-        int y = 20;
+        int y = 17;
+
+        gfxPixel(x + 7 + (x_incr * noteBucket.last_note), y);
+
+        y += 3;
         for (uint8_t i = 0; i < noteBucket.scale.num_notes; i++)
         {
             gfxPrint(x, y, noteBucket.note_weights[i]);
             x += x_incr;
         }
 
-        x = 10 + (x_incr * selected_note);
-        y = 31;
-        gfxDottedLine(x, y, x + 10, y);
+        x = 10;
+        y += 11;
+        if (selected_setting == SETTINGS::SLICES)
+        {
+            if (editing)
+            {
+                x = 10 + (x_incr * selected_note);
+                gfxDottedLine(x, y, x + 10, y);
+            }
+            else
+            {
+                gfxDottedLine(x, y, x + (x_incr * noteBucket.scale.num_notes), y);
+            }
+        }
 
-        y += 17;
-        gfxPrint(10, y, activePitch);
-        gfxPrint(50, y, (int)gate);
-        y += 15;
-        gfxPrint(10, y, input);
+        y += LINE_SPACE;
+        gfxPrint(10, y, OC::scale_names[noteBucket.scale_idx]);
+
+        y += 11;
+        if (selected_setting == SETTINGS::SCALE)
+        {
+            gfxDottedLine(10, y, 10 + 28, y);
+        }
+
+        y += LINE_SPACE;
+        gfxPrint(10, y, minOctave);
+        gfxPrint(20, y, maxOctave);
+
+        gfxPrint(60, y, ViewOut(DAC_CHANNEL_B));
+
+        y += 11;
+        if (selected_setting == SETTINGS::MIN_OCTAVE)
+        {
+            gfxDottedLine(10, y, 10 + 6, y);
+        }
+        if (selected_setting == SETTINGS::MAX_OCTAVE)
+        {
+            gfxDottedLine(20, y, 20 + 6, y);
+        }
     }
 
     void RerollNoteWeights()
     {
         noteBucket.RerollWeights();
+    }
+
+    void ScrollSetting(const UI::Event &event)
+    {
+        if (editing)
+        {
+            UpdateSelectedNote(event);
+        }
+        else
+        {
+            int value = selected_setting + event.value;
+            if (value < 0)
+            {
+                value = SETTINGS::SETTINGS_COUNT - 1;
+            }
+            value %= SETTINGS::SETTINGS_COUNT;
+            selected_setting = value;
+        }
+    }
+
+    void EditSetting(const UI::Event &event)
+    {
+        if (selected_setting == SETTINGS::SLICES && editing)
+        {
+            UpdateSelectedNoteValue(event);
+            return;
+        }
+
+        if (selected_setting == SETTINGS::MIN_OCTAVE)
+        {
+            int value = minOctave + event.value;
+            if (value < 0)
+            {
+                value = 0;
+            }
+            else if (value > maxOctave)
+            {
+                value = maxOctave;
+            }
+            else if (value > MAX_OCTAVE_VALUE)
+            {
+                value = MAX_OCTAVE_VALUE;
+            }
+            minOctave = value;
+        }
+
+        if (selected_setting == SETTINGS::MAX_OCTAVE)
+        {
+            int value = maxOctave + event.value;
+            if (value < 0)
+            {
+                value = 0;
+            }
+            else if (value < minOctave)
+            {
+                value = minOctave;
+            }
+            else if (value > MAX_OCTAVE_VALUE)
+            {
+                value = MAX_OCTAVE_VALUE;
+            }
+            maxOctave = value;
+        }
+
+        if (selected_setting == SETTINGS::SCALE)
+        {
+            int value = noteBucket.scale_idx + event.value;
+            if (value < MIN_SCALE)
+            {
+                value = MAX_SCALE;
+            }
+            else if (value > MAX_SCALE)
+            {
+                value = MIN_SCALE;
+            }
+            noteBucket.SetScale(value);
+        }
+    }
+
+    void ToggleEditingSelection(const UI::Event &event)
+    {
+        if (selected_setting == SETTINGS::SLICES)
+        {
+            editing = !editing;
+        }
     }
 
     void UpdateSelectedNote(const UI::Event &event)
@@ -243,6 +380,8 @@ private:
 
     int scale_index = DEFAULT_SCALE;
 
+    int selected_setting = 0;
+    bool editing = false;
     int selected_note = 0;
 };
 
@@ -294,6 +433,11 @@ void Dicer_handleButtonEvent(const UI::Event &event)
         {
             Dicer_instance.RerollNoteWeights();
         }
+        else if (event.control == OC::CONTROL_BUTTON_R)
+        {
+            // Pressed right encoder
+            Dicer_instance.ToggleEditingSelection(event);
+        }
     }
 }
 
@@ -301,11 +445,11 @@ void Dicer_handleEncoderEvent(const UI::Event &event)
 {
     if (OC::CONTROL_ENCODER_L == event.control)
     {
-        Dicer_instance.UpdateSelectedNote(event);
+        Dicer_instance.ScrollSetting(event);
     }
     if (OC::CONTROL_ENCODER_R == event.control)
     {
-        Dicer_instance.UpdateSelectedNoteValue(event);
+        Dicer_instance.EditSetting(event);
     }
 }
 
