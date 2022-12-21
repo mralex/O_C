@@ -43,6 +43,7 @@ enum SETTINGS
     SCALE,
     MIN_OCTAVE,
     MAX_OCTAVE,
+    ROOT,
     SETTINGS_COUNT
 };
 
@@ -74,7 +75,7 @@ public:
             // no notes are selected
             // FIXME: Returning the root note, not sure what else should be done? Don't trigger?
             last_note = 0;
-            return scale.notes[0];
+            return scale.notes[0] + root_pitch;
         }
 
         uint16_t w = random(accumulated_weight);
@@ -83,11 +84,11 @@ public:
             if (notes_weighted[i] >= w)
             {
                 last_note = i;
-                return scale.notes[i];
+                return scale.notes[i] + root_pitch;
             }
         }
 
-        return scale.notes[0];
+        return scale.notes[0] + root_pitch;
     }
 
     void SetScale(int index)
@@ -95,6 +96,12 @@ public:
         scale_idx = index;
         scale = OC::Scales::GetScale(scale_idx);
         updateWeights();
+    }
+
+    void SetRoot(int r)
+    {
+        root = r;
+        root_pitch = root << 7;
     }
 
     void RerollWeights()
@@ -109,6 +116,8 @@ public:
     uint16_t notes_weighted[MAX_NOTES];
     uint16_t accumulated_weight;
     uint8_t last_note = 0;
+    int8_t root = 0;
+    int32_t root_pitch = 0;
 
     uint32_t scale_idx;
     braids::Scale scale;
@@ -236,7 +245,7 @@ public:
         gfxPrint(10, y, minOctave);
         gfxPrint(20, y, maxOctave);
 
-        gfxPrint(60, y, ViewOut(DAC_CHANNEL_B));
+        gfxPrint(60, y, OC::Strings::note_names_unpadded[noteBucket.root]);
 
         y += 11;
         if (selected_setting == SETTINGS::MIN_OCTAVE)
@@ -246,6 +255,10 @@ public:
         if (selected_setting == SETTINGS::MAX_OCTAVE)
         {
             gfxDottedLine(20, y, 20 + 6, y);
+        }
+        if (selected_setting == SETTINGS::ROOT)
+        {
+            gfxDottedLine(60, y, 60 + 12, y);
         }
     }
 
@@ -328,6 +341,13 @@ public:
                 value = MIN_SCALE;
             }
             noteBucket.SetScale(value);
+        }
+
+        if (selected_setting == SETTINGS::ROOT)
+        {
+            int value = noteBucket.root + event.value;
+            CONSTRAIN(value, 0, 11);
+            noteBucket.SetRoot(value);
         }
     }
 
