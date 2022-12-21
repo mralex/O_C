@@ -152,6 +152,10 @@ public:
         {
             gate_timeout--;
         }
+        if (saver_gate_timeout > 0)
+        {
+            saver_gate_timeout--;
+        }
 
         // Get a note to play
         if (Clock(0))
@@ -166,6 +170,7 @@ public:
 
                 // Leave gate open for 50% PWM
                 gate_timeout = ClockCycleTicks(0) / 2;
+                saver_gate_timeout = ClockCycleTicks(0);
             }
         }
         else if (gate_timeout <= 0)
@@ -184,17 +189,11 @@ public:
     void Screensaver()
     {
         int x = 10;
-        int x_incr = 15;
-        int y = 17;
+        int width = 118 / noteBucket.scale.num_notes;
+        int y = 22;
 
-        gfxPixel(x + 7 + (x_incr * noteBucket.last_note), y);
-
-        y += 3;
-        for (uint8_t i = 0; i < noteBucket.scale.num_notes; i++)
-        {
-            gfxPrint(x, y, noteBucket.note_weights[i]);
-            x += x_incr;
-        }
+        if (saver_gate_timeout > 0)
+            gfxRect(x + (width * noteBucket.last_note), y, width, 20);
     }
 
     void View()
@@ -397,6 +396,7 @@ private:
     uint32_t input = 0;
 
     int gate_timeout;
+    int saver_gate_timeout;
 
     int scale_index = DEFAULT_SCALE;
 
