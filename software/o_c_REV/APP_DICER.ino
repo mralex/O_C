@@ -52,12 +52,7 @@ class NoteBucket
 public:
     NoteBucket() : note_weights{}, notes_weighted{}, accumulated_weight(0), scale_idx(DEFAULT_SCALE), scale(OC::Scales::GetScale(DEFAULT_SCALE))
     {
-        for (uint8_t i = 0; i < MAX_NOTES; i++)
-        {
-            note_weights[i] = 0;
-            notes_weighted[i] = 0;
-        }
-
+        ClearWeights();
         RerollWeights();
     }
 
@@ -110,6 +105,16 @@ public:
         {
             UpdateNoteWeight(i, random(MAX_VALUE));
         }
+    }
+
+    void ClearWeights()
+    {
+        for (uint8_t i = 0; i < MAX_NOTES; i++)
+        {
+            note_weights[i] = 0;
+            notes_weighted[i] = 0;
+        }
+        accumulated_weight = 0;
     }
 
     uint8_t note_weights[MAX_NOTES];
@@ -266,7 +271,13 @@ public:
         noteBucket.RerollWeights();
     }
 
-    void ScrollSetting(const UI::Event &event)
+    void ClearNoteWeights()
+    {
+        noteBucket.ClearWeights();
+    }
+
+    void
+    ScrollSetting(const UI::Event &event)
     {
         if (editing)
         {
@@ -457,6 +468,13 @@ void Dicer_handleButtonEvent(const UI::Event &event)
         {
             // Pressed right encoder
             Dicer_instance.ToggleEditingSelection(event);
+        }
+    }
+    else if (UI::EVENT_BUTTON_LONG_PRESS == event.type)
+    {
+        if (event.control == OC::CONTROL_BUTTON_DOWN)
+        {
+            Dicer_instance.ClearNoteWeights();
         }
     }
 }
